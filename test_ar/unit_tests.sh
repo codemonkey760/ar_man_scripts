@@ -16,6 +16,7 @@ tear_down () {
 }
 
 print_report () {
+  echo ""
   echo "---UNIT-TEST-RESULTS---"
   echo -e "\e[1;49;32mPASSING: ${passing_count}\e[0m"
   echo -e "\e[1;49;31mFAILING: ${failing_count}\e[0m"
@@ -27,16 +28,11 @@ setup_checksums_match_directory_contents () {
   tear_down
 
   mkdir "$test_data_dir"
-  echo "File1" > "${test_data_dir}/${file_name_1}"
-  echo "File2" > "${test_data_dir}/${file_name_2}"
-  echo "File3" > "${test_data_dir}/${file_name_3}"
   cd "${test_data_dir}" || exit 1
+  echo "File1" > "${file_name_1}"
+  echo "File2" > "${file_name_2}"
+  echo "File3" > "${file_name_3}"
   md5sum -- * > "${check_sum_file}"
-  if ! md5sum --status -c "${check_sum_file}"; then
-    echo "Check sum of test data failed ... something's up"
-    echo "Cannot get usable unit test result if check sum fails here"
-    exit 1
-  fi
   cd ..
 }
 
@@ -45,20 +41,155 @@ test_ar_returns_success_when_check_sums_match_directory_contents () {
 
   total_count=$((total_count + 1))
   cd ${test_data_dir} || exit 1
-  echo ""
-  if ! ../test_ar.sh; then
+  script_output=$(../test_ar.sh)
+  if [[ $? != 0 ]]; then
     failing_count=$((failing_count + 1))
-    echo -e "\e[1;49;31mTEST FAILURE:\e[0m" 'test_ar_returns_success_when_check_sums_match_directory_contents'
+    echo -e "\n\e[1;49;31mTEST FAILURE:\e[0m" 'test_ar_returns_success_when_check_sums_match_directory_contents'
     echo "script failed when test data was good"
   else
     passing_count=$((passing_count + 1))
-    echo -e "\e[1;49;32mTEST PASSED:\e[0m" 'test_ar_returns_success_when_check_sums_match_directory_contents'
+    echo -n '.'
   fi
-  echo ""
   cd ..
 
   tear_down
 }
 
+setup_checksum_file_missing () {
+  tear_down
+
+  mkdir "$test_data_dir"
+  cd "${test_data_dir}" || exit 1
+  echo "File1" > "${file_name_1}"
+  echo "File2" > "${file_name_2}"
+  echo "File3" > "${file_name_3}"
+  cd ..
+}
+
+test_ar_returns_failure_when_check_sum_file_missing () {
+  setup_checksum_file_missing
+
+  total_count=$((total_count + 1))
+  cd ${test_data_dir} || exit 1
+  script_output=$(../test_ar.sh)
+  if [[ $? = 0 ]]; then
+    failing_count=$((failing_count + 1))
+    echo -e "\n\e[1;49;31mTEST FAILURE:\e[0m" 'test_ar_returns_failure_when_check_sum_file_missing'
+    echo "script exited successfully when checksum file was missing"
+  else
+    passing_count=$((passing_count + 1))
+    echo -n '.'
+  fi
+  cd ..
+
+  tear_down
+}
+
+setup_file_count_less_than_sum_count () {
+  tear_down
+
+  mkdir "$test_data_dir"
+  cd "${test_data_dir}" || exit 1
+  echo "File1" > "${file_name_1}"
+  echo "File2" > "${file_name_2}"
+  echo "File3" > "${file_name_3}"
+  md5sum -- * > "${check_sum_file}"
+  rm "${file_name_3}"
+  cd ..
+}
+
+test_ar_returns_failure_when_file_count_less_than_sum_count () {
+  setup_file_count_less_than_sum_count
+
+  total_count=$((total_count + 1))
+  cd ${test_data_dir} || exit 1
+  script_output=$(../test_ar.sh)
+  if [[ $? = 0 ]]; then
+    failing_count=$((failing_count + 1))
+    echo -e "\n\e[1;49;31mTEST FAILURE:\e[0m" 'test_ar_returns_failure_when_file_count_less_than_sum_count'
+    echo "script exited successfully when file count was less then check sum count"
+  else
+    passing_count=$((passing_count + 1))
+    echo -n '.'
+  fi
+  cd ..
+
+  tear_down
+}
+
+setup_file_count_greater_than_sum_count () {
+  tear_down
+
+  mkdir "$test_data_dir"
+  cd "${test_data_dir}" || exit 1
+  echo "File1" > "${file_name_1}"
+  echo "File2" > "${file_name_2}"
+  md5sum -- * > "${check_sum_file}"
+  echo "File3" > "${file_name_3}"
+  cd ..
+}
+
+test_ar_returns_failure_when_file_count_greater_than_sum_count () {
+  setup_file_count_greater_than_sum_count
+
+  total_count=$((total_count + 1))
+  cd ${test_data_dir} || exit 1
+  script_output=$(../test_ar.sh)
+  if [[ $? = 0 ]]; then
+    failing_count=$((failing_count + 1))
+    echo -e "\n\e[1;49;31mTEST FAILURE:\e[0m" 'test_ar_returns_failure_when_file_count_greater_than_sum_count'
+    echo "script exited successfully when file count was greater then check sum count"
+  else
+    passing_count=$((passing_count + 1))
+    echo -n '.'
+  fi
+  cd ..
+
+  tear_down
+}
+
+setup_checksum_failure () {
+  tear_down
+
+  mkdir "$test_data_dir"
+  cd "${test_data_dir}" || exit 1
+  echo "File1" > "${file_name_1}"
+  echo "File2" > "${file_name_2}"
+  echo "File3" > "${file_name_3}"
+  md5sum -- * > "${check_sum_file}"
+  echo "Bad file contents" > ${file_name_3}
+  cd ..
+}
+
+test_ar_returns_failure_when_check_sum_fails () {
+  setup_checksum_failure
+
+  total_count=$((total_count + 1))
+  cd ${test_data_dir} || exit 1
+  script_output=$(../test_ar.sh 2>&1)
+  if [[ $? = 0 ]]; then
+    failing_count=$((failing_count + 1))
+    echo -e "\n\e[1;49;31mTEST FAILURE:\e[0m" 'test_ar_returns_failure_when_check_sum_fails'
+    echo "script exited successfully when a file checksum does not match"
+  else
+    passing_count=$((passing_count + 1))
+    echo -n '.'
+  fi
+  cd ..
+
+  tear_down
+}
+
+echo "Starting unit test suite for 'test_ar.sh'"
 test_ar_returns_success_when_check_sums_match_directory_contents
+test_ar_returns_failure_when_check_sum_file_missing
+test_ar_returns_failure_when_file_count_less_than_sum_count
+test_ar_returns_failure_when_file_count_greater_than_sum_count
+test_ar_returns_failure_when_check_sum_fails
 print_report
+
+if [[ "$failing_count" = 0 ]]; then
+  exit 0
+else
+  exit 1
+fi
